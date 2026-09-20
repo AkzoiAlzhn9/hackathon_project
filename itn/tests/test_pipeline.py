@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Unit tests: python -m unittest discover -s tests (from the itn/ directory)."""
 
+import argparse
 import csv
 import os
 import sys
@@ -10,6 +11,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from itn import LABELS  # noqa: E402
+from itn.cli import cmd_validate  # noqa: E402
 from itn.data import read_sentences, write_submission  # noqa: E402
 from itn.features import sentence_features  # noqa: E402
 from itn.lexicons import is_number, is_ordinal, tags  # noqa: E402
@@ -120,6 +122,57 @@ class TestData(unittest.TestCase):
         sentences = read_sentences(path)
         with self.assertRaises(ValueError):
             write_submission(os.path.join(self.dir, "x.csv"), sentences, [["O", "O"]])
+
+
+class TestValidate(unittest.TestCase):
+    """The judge rejects a submission outright for a missing row, a duplicate row
+    or an unknown label, so the validator is the last check before submitting."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        # sample_submission.csv has sent_id/token_id/label, so it works as the
+        # index to validate against just like test.csv does.
+        self.index = os.path.join(self.dir, "sample_submission.csv")
+        with open(self.index, "w", encoding="utf-8", newline="") as fh:
+            writer = csv.writer(fh, lineterminator="\n")
+            writer.writerow(["sent_id", "token_id", "label"])
+            for sid in ("s000000", "s000123"):
+                for tid in range(3):
+                    writer.writerow([sid, tid, "O"])
+
+    def _validate(self, rows):
+        pred = os.path.join(self.dir, "solution.csv")
+        with open(pred, "w", encoding="utf-8", newline="") as fh:
+            writer = csv.writer(fh, lineterminator="\n")
+            writer.writerow(["sent_id", "token_id", "label"])
+            writer.writerows(rows)
+        return cmd_validate(argparse.Namespace(test=self.index, pred=pred))
+
+    def _all_rows(self):
+        return [[sid, tid, "O"] for sid in ("s000000", "s000123") for tid in range(3)]
+
+    def test_accepts_a_complete_submission(self):
+        self.assertEqual(self._validate(self._all_rows()), 0)
+
+    def test_rejects_missing_row(self):
+        self.assertEqual(self._validate(self._all_rows()[:-1]), 1)
+
+    def test_rejects_duplicate_row(self):
+        rows = self._all_rows()
+        self.assertEqual(self._validate(rows + [rows[0]]), 1)
+
+    def test_rejects_unknown_label(self):
+        rows = self._all_rows()
+        rows[0][2] = "B-NUMBER"
+        self.assertEqual(self._validate(rows), 1)
+
+    def test_rejects_row_absent_from_the_index(self):
+        self.assertEqual(self._validate(self._all_rows() + [["s999999", 0, "O"]]), 1)
+
+    def test_row_order_does_not_matter(self):
+        rows = self._all_rows()
+        rows.reverse()
+        self.assertEqual(self._validate(rows), 0)
 
 
 class TestFeatures(unittest.TestCase):

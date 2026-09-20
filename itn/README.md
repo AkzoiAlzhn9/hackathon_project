@@ -41,6 +41,13 @@ iterating, and it ends with a shape check of `solution.csv` against `test.csv`
 (one row per token, no duplicates, no invalid labels — the three things the judge
 rejects outright).
 
+`sample_submission.csv` also works as the index to validate against, since it
+carries the same `sent_id`/`token_id` pairs as `test.csv`:
+
+```bash
+python -m itn.cli validate --test data/sample_submission.csv --pred solution.csv
+```
+
 Separate steps, if you prefer:
 
 ```bash
@@ -100,14 +107,17 @@ Measured on this machine (4 cores, no GPU, synthetic data at ~9 tokens/sentence)
 
 | workload | result |
 |---|---|
-| feature extraction | ~112k tokens/s — all ~7M training tokens in about a minute |
+| feature extraction | ~112k tokens/s |
 | train, 150k sentences / 1.36M tokens, 100 L-BFGS iterations | 220 s wall, 1.23 GB peak RSS |
-| tagging | 20k sentences in 3.2 s — the 147k-sentence test set is well under a minute |
+| tagging | 20k sentences in 3.2 s |
+| validating a 1.88M-row submission | 10 s |
 
-Extrapolating the training row to the full 738k sentences gives roughly 15–20 minutes
-at 100 iterations. Memory will *not* scale as gently: peak RSS is driven by the number
-of distinct features, and real transcripts have a far larger vocabulary than the
-generator's. If you hit swap, raise `--min-freq` or cap `--max-sents` first. Knobs:
+The real `test.csv` index is 146,797 sentences / 1,881,565 tokens (see **Dataset
+shape**), so `train.csv` is on the order of 9.5M tokens: about 85 s to featurise, and
+extrapolating the training row gives roughly 25 minutes at 100 iterations. Memory will
+*not* scale as gently: peak RSS is driven by the number of distinct features, and real
+transcripts have a far larger vocabulary than the generator's. If you hit swap, raise
+`--min-freq` or cap `--max-sents` first. Knobs:
 
 * `--max-sents N` — train on a prefix of the data (fast iteration, or a memory cap).
 * `--min-freq N` — drop features seen fewer than N times. Raise it (3–5) if memory
@@ -123,6 +133,21 @@ Where to look for gains, in rough order of expected value: per-class errors in t
 report (`evaluate` breaks F1 down by class — boundary errors concentrate in MEASURE and
 DATE, where the unit or month word is in the span but the counted object is not);
 then the transformer; then an ensemble of the two.
+
+## Dataset shape
+
+Measured from the real `sample_submission.csv` (the only contest file available here —
+it carries the test index but no tokens, so it cannot be used to train or predict):
+
+* 146,797 sentences, 1,881,565 tokens, mean 12.8 tokens/sentence, min 2, max 182.
+* `token_id` runs 0…n−1 in every sentence, with no gaps.
+* `sent_id` is **not** contiguous: the ids span `s000000`…`s164999` with 18,203 values
+  unused. Do not derive a sentence count from the id range, and do not assume a
+  `sent_id` is unique across `train.csv` and `test.csv` — nothing in the data says the
+  two files share one id space.
+* Sentences are longer than the generator's ~9 tokens, and the longest exceeds the
+  transformer's 128-word chunk, so the chunking path in `itn/transformer.py` is live
+  on real data rather than dead code.
 
 ## Layout
 

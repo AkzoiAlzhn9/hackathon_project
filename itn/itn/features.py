@@ -8,12 +8,35 @@ word is CARDINAL, TIME, MEASURE or WHITELIST depending only on its neighbours
 """
 
 from functools import lru_cache
-from typing import List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from . import lexicons
 
 _PAD = "<pad>"
 _OFFSETS = (-2, -1, 0, 1, 2)
+
+# Frequency buckets. WHITELIST spans are transliterated names and technical
+# terms ("ворд", "адоб фе ре фли", "эйэй"), so "this word is rare in the
+# corpus" generalises to brands the model never saw in training, where the
+# word-identity features cannot help at all.
+_FREQ_EDGES = (0, 1, 4, 19, 99, 999)
+
+
+def freq_bucket(count: int) -> int:
+    for i, edge in enumerate(_FREQ_EDGES):
+        if count <= edge:
+            return i
+    return len(_FREQ_EDGES)
+
+
+def build_vocabulary(sentences) -> Dict[str, int]:
+    """Token -> frequency bucket, counted over the training sentences."""
+    import collections
+
+    counts = collections.Counter()
+    for sent in sentences:
+        counts.update(sent.tokens)
+    return {token: freq_bucket(count) for token, count in counts.items()}
 
 
 @lru_cache(maxsize=1 << 18)
@@ -49,7 +72,9 @@ def _shape(token: str) -> str:
     return "xl"
 
 
-def token_features(tokens: Sequence[str], i: int) -> List[str]:
+def token_features(
+    tokens: Sequence[str], i: int, vocab: Optional[Dict[str, int]] = None
+) -> List[str]:
     n = len(tokens)
     word = tokens[i]
     feats: List[str] = ["bias"]
@@ -82,6 +107,12 @@ def token_features(tokens: Sequence[str], i: int) -> List[str]:
 
     # Sub-word shape: both languages inflect heavily, suffixes carry the case.
     feats.extend(_affixes(word))
+
+    if vocab is not None:
+        feats.append(f"f[0]={vocab.get(word, 0)}")
+        feats.append(f"f[-1]={vocab.get(w(-1), 0)}")
+        feats.append(f"f[1]={vocab.get(w(1), 0)}")
+        feats.append(f"f[-1]|f[0]|f[1]={vocab.get(w(-1), 0)}{vocab.get(word, 0)}{vocab.get(w(1), 0)}")
 
     # Position.
     if i == 0:
@@ -120,5 +151,7 @@ def token_features(tokens: Sequence[str], i: int) -> List[str]:
     return feats
 
 
-def sentence_features(tokens: Sequence[str]) -> List[List[str]]:
-    return [token_features(tokens, i) for i in range(len(tokens))]
+def sentence_features(
+    tokens: Sequence[str], vocab: Optional[Dict[str, int]] = None
+) -> List[List[str]]:
+    return [token_features(tokens, i, vocab) for i in range(len(tokens))]

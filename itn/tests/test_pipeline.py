@@ -12,8 +12,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from itn import LABELS  # noqa: E402
 from itn.cli import cmd_validate  # noqa: E402
+from itn.crf import DEFAULT_PARAMS  # noqa: E402
 from itn.data import read_sentences, write_submission  # noqa: E402
-from itn.features import sentence_features  # noqa: E402
+from itn.features import freq_bucket, sentence_features  # noqa: E402
 from itn.lexicons import is_number, is_ordinal, tags  # noqa: E402
 from itn.spans import from_spans, repair, score, to_spans  # noqa: E402
 
@@ -209,6 +210,39 @@ class TestFeatures(unittest.TestCase):
 
     def test_empty_sentence(self):
         self.assertEqual(sentence_features([]), [])
+
+    def test_frequency_features_only_appear_with_a_vocabulary(self):
+        tokens = "он сказал ворд".split()
+        plain = sentence_features(tokens)[2]
+        self.assertFalse(any(f.startswith("f[0]=") for f in plain))
+        vocab = {"он": 6, "сказал": 5, "ворд": 1}
+        with_vocab = sentence_features(tokens, vocab)[2]
+        self.assertIn("f[0]=1", with_vocab)
+
+    def test_unseen_token_falls_into_the_rarest_bucket(self):
+        feats = sentence_features(["адоб"], {"другое": 6})[0]
+        self.assertIn("f[0]=0", feats)
+
+    def test_freq_buckets_are_monotonic(self):
+        buckets = [freq_bucket(n) for n in (0, 1, 3, 10, 50, 500, 5000)]
+        self.assertEqual(buckets, sorted(buckets))
+        self.assertLess(buckets[0], buckets[-1])
+
+
+class TestCrfSettings(unittest.TestCase):
+    def test_boolean_settings_reach_crfsuite(self):
+        # crfsuite parses "true" as False, so booleans must be encoded as "1"/"0".
+        try:
+            import pycrfsuite
+        except ImportError:
+            self.skipTest("python-crfsuite not installed")
+        trainer = pycrfsuite.Trainer(verbose=False)
+        trainer.select("lbfgs", "crf1d")
+        for key, value in DEFAULT_PARAMS.items():
+            encoded = ("1" if value else "0") if isinstance(value, bool) else str(value)
+            trainer.set(key, encoded)
+            if isinstance(value, bool):
+                self.assertEqual(trainer.get(key), value, key)
 
 
 class TestLexicons(unittest.TestCase):

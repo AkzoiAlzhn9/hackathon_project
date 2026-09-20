@@ -165,9 +165,20 @@ YEAR_WORDS = _s(
 
 EMAIL_MARKERS = _s(
     """
-    собачка собака собаки эт этт ат дог нүкте нукте точка тчк точку точкой
-    подчеркивание подчёркивание нижнее дефис тире слеш слэш дробь
-    астына сызық сызықша
+    собачка собака собаки табачка эт этт ат белгісі белгиси дог ит
+    нүкте нукте точка тчк точку точкой нүктесі
+    подчеркивание подчёркивание нижнее дефис тире сызықша слеш слэш дробь
+    астына сызық
+    """
+)
+
+# Dictated addresses spell the domain out letter by letter ("ка зет" = .kz,
+# "эр у" = .ru).  Individually these are ordinary short words, so they are only
+# useful together with the markers above -- the CRF weighs that combination.
+SPELLED_LETTERS = _s(
+    """
+    а бэ вэ ге дэ е жэ зэ зет и ка эл эм эн о пэ эр эс тэ у эф ха цэ че ша
+    эй эйт би си ди эйч джей кей эль оу пи кью ар ти ви дабл экс уай зед зэт зэд
     """
 )
 
@@ -179,6 +190,10 @@ EMAIL_DOMAINS = _s(
 )
 
 EMAIL_CONTEXT: FrozenSet[str] = EMAIL_MARKERS | EMAIL_DOMAINS
+
+
+def is_spelled_letter(token: str) -> bool:
+    return token in SPELLED_LETTERS
 
 # --- decimals -------------------------------------------------------------
 
@@ -299,4 +314,6 @@ def tags(token: str) -> FrozenSet[str]:
         out.add("MAIL")
     if is_decimal_marker(token):
         out.add("DEC")
+    if is_spelled_letter(token):
+        out.add("LET")
     return frozenset(out)

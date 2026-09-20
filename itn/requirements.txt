@@ -1,0 +1,7 @@
+# Core pipeline (CPU-only, no GPU needed)
+python-crfsuite>=0.9.9
+
+# Optional: only needed for the transformer tagger (itn/transformer.py)
+# torch>=2.1
+# transformers>=4.40
+# datasets>=2.18

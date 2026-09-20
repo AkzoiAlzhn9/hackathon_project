@@ -1,0 +1,6 @@
+data/
+runs/
+*.crf
+solution.csv
+__pycache__/
+*.pyc

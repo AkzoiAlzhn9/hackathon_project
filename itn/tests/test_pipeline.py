@@ -215,13 +215,20 @@ class TestFeatures(unittest.TestCase):
         tokens = "он сказал ворд".split()
         plain = sentence_features(tokens)[2]
         self.assertFalse(any(f.startswith("f[0]=") for f in plain))
-        vocab = {"он": 6, "сказал": 5, "ворд": 1}
+        vocab = {"он": 6, "сказал": 5, "ворд": 0}
         with_vocab = sentence_features(tokens, vocab)[2]
-        self.assertIn("f[0]=1", with_vocab)
+        self.assertIn("f[0]=0", with_vocab)
 
     def test_unseen_token_falls_into_the_rarest_bucket(self):
         feats = sentence_features(["адоб"], {"другое": 6})[0]
         self.assertIn("f[0]=0", feats)
+
+    def test_unseen_and_singleton_share_a_bucket(self):
+        # The vocabulary is built from the training sentences, so a bucket that
+        # only unseen words could reach would never be trained. Singletons must
+        # fall into the same bucket for the feature to mean anything at test time.
+        self.assertEqual(freq_bucket(0), freq_bucket(1))
+        self.assertNotEqual(freq_bucket(1), freq_bucket(2))
 
     def test_freq_buckets_are_monotonic(self):
         buckets = [freq_bucket(n) for n in (0, 1, 3, 10, 50, 500, 5000)]

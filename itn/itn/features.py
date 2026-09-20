@@ -19,7 +19,13 @@ _OFFSETS = (-2, -1, 0, 1, 2)
 # terms ("ворд", "адоб фе ре фли", "эйэй"), so "this word is rare in the
 # corpus" generalises to brands the model never saw in training, where the
 # word-identity features cannot help at all.
-_FREQ_EDGES = (0, 1, 4, 19, 99, 999)
+#
+# Singletons share the bucket of unseen words on purpose. The vocabulary is
+# counted over the training sentences themselves, so a bucket reserved for
+# count 0 would never fire while training and would carry no weight at all at
+# prediction time -- exactly where it is needed. Folding count 1 into it means
+# the bucket is trained on words that behave like unseen ones.
+_FREQ_EDGES = (1, 4, 19, 99, 999)
 
 
 def freq_bucket(count: int) -> int:

@@ -96,9 +96,18 @@ python -m itn.transformer predict --model-dir runs/xlmr --test data/test.csv --o
 
 ## Scaling and tuning
 
-Measured on this machine (4 cores, synthetic data, 9 tokens/sentence average):
-feature extraction runs at ~112k tokens/s, so featurising all ~7M training tokens
-costs about a minute; L-BFGS iterations dominate the rest. Knobs:
+Measured on this machine (4 cores, no GPU, synthetic data at ~9 tokens/sentence):
+
+| workload | result |
+|---|---|
+| feature extraction | ~112k tokens/s — all ~7M training tokens in about a minute |
+| train, 150k sentences / 1.36M tokens, 100 L-BFGS iterations | 220 s wall, 1.23 GB peak RSS |
+| tagging | 20k sentences in 3.2 s — the 147k-sentence test set is well under a minute |
+
+Extrapolating the training row to the full 738k sentences gives roughly 15–20 minutes
+at 100 iterations. Memory will *not* scale as gently: peak RSS is driven by the number
+of distinct features, and real transcripts have a far larger vocabulary than the
+generator's. If you hit swap, raise `--min-freq` or cap `--max-sents` first. Knobs:
 
 * `--max-sents N` — train on a prefix of the data (fast iteration, or a memory cap).
 * `--min-freq N` — drop features seen fewer than N times. Raise it (3–5) if memory

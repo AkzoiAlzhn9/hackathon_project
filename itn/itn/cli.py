@@ -78,13 +78,15 @@ def _spans(labels):
 
 
 def cmd_evaluate(args) -> int:
+    from .data import _open
+
     gold_sentences = read_sentences(args.gold)
     if gold_sentences and gold_sentences[0].labels is None:
         _log(f"{args.gold} has no 'label' column")
         return 2
 
     pred_labels = {}
-    with open(args.pred, "r", encoding="utf-8", newline="") as fh:
+    with _open(args.pred) as fh:
         for row in csv.DictReader(fh):
             pred_labels.setdefault(row["sent_id"], {})[str(row["token_id"])] = row["label"]
 
@@ -111,8 +113,10 @@ def cmd_evaluate(args) -> int:
 
 def cmd_validate(args) -> int:
     """Check a submission against test.csv the way the judge does."""
+    from .data import _open
+
     expected = set()
-    with open(args.test, "r", encoding="utf-8", newline="") as fh:
+    with _open(args.test) as fh:
         for row in csv.DictReader(fh):
             expected.add((row["sent_id"], str(row["token_id"])))
 
@@ -122,7 +126,7 @@ def cmd_validate(args) -> int:
     seen = set()
     duplicates = 0
     bad_labels = set()
-    with open(args.pred, "r", encoding="utf-8", newline="") as fh:
+    with _open(args.pred) as fh:
         reader = csv.DictReader(fh)
         if reader.fieldnames != ["sent_id", "token_id", "label"]:
             _log(f"FAIL: header is {reader.fieldnames}, expected ['sent_id', 'token_id', 'label']")

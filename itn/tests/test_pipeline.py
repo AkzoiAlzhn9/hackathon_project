@@ -117,6 +117,18 @@ class TestData(unittest.TestCase):
         self.assertEqual(lines[0], "sent_id,token_id,label")
         self.assertEqual(lines[2], "s1,1,B-TIME")
 
+    def test_reads_gzipped_csv(self):
+        import gzip
+
+        path = os.path.join(self.dir, "train.csv.gz")
+        with gzip.open(path, "wt", encoding="utf-8", newline="") as fh:
+            writer = csv.writer(fh, lineterminator="\n")
+            writer.writerow(["sent_id", "token_id", "token", "label"])
+            writer.writerow(["s1", 0, "бес", "B-CARDINAL"])
+        sentences = read_sentences(path)
+        self.assertEqual(sentences[0].tokens, ["бес"])
+        self.assertEqual(sentences[0].labels, ["B-CARDINAL"])
+
     def test_submission_rejects_length_mismatch(self):
         path = self._write("t.csv", [["s1", 0, "в"]], ["sent_id", "token_id", "token"])
         sentences = read_sentences(path)

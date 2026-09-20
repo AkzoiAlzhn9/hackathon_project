@@ -1,6 +1,7 @@
 """Reading and writing the contest CSV files."""
 
 import csv
+import gzip
 import sys
 from typing import Dict, Iterator, List, NamedTuple, Optional, Sequence
 
@@ -14,8 +15,15 @@ class Sentence(NamedTuple):
     labels: Optional[List[str]]
 
 
+def _open(path: str):
+    """Open a CSV, transparently handling gzip (the contest files compress ~4x)."""
+    if path.endswith(".gz"):
+        return gzip.open(path, "rt", encoding="utf-8", newline="")
+    return open(path, "r", encoding="utf-8", newline="")
+
+
 def _rows(path: str) -> Iterator[Dict[str, str]]:
-    with open(path, "r", encoding="utf-8", newline="") as fh:
+    with _open(path) as fh:
         reader = csv.DictReader(fh)
         if reader.fieldnames is None:
             return

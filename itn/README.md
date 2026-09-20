@@ -27,7 +27,7 @@ is claimed anywhere in this README. What *is* verified:
 
 ```bash
 pip install -r requirements.txt          # python-crfsuite; CPU only
-# put the contest files in data/: train.csv, test.csv
+# put the contest files in data/: train.csv, test.csv  (.csv.gz is read directly)
 
 python -m itn.cli run \
     --train data/train.csv \
